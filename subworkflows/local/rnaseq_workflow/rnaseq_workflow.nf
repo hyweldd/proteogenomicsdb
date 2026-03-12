@@ -4,17 +4,22 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-//modules involved in the generation of a database from a DNA sequence
-include { STRINGTIE_STRINGTIE } from '/exports/eddie/scratch/s2215490/proteogenomicsdb/modules/nf-core/stringtie/stringtie/main.nf'
-include { SAMTOOLS_FAIDX      } from '/exports/eddie/scratch/s2215490/proteogenomicsdb/modules/nf-core/samtools/faidx/main.nf'
-include { GFFCOMPARE          } from '/exports/eddie/scratch/s2215490/proteogenomicsdb/modules/nf-core/gffcompare/main.nf'
-include { GFFREAD             } from '/exports/eddie/scratch/s2215490/proteogenomicsdb/modules/nf-core/gffread/main.nf'
-include { PYPGATKDNA          } from '/exports/eddie/scratch/s2215490/proteogenomicsdb/modules/local/pypgatk/dnaseq_to_proteindb/main.nf'
+//general workflow modules 
+include { SAMTOOLS_FAIDX      } from '../../../modules/nf-core/samtools/faidx/main.nf'
 
-//modules involved in the generation of a database from a VCF file
-include { FREEBAYES            } from '/exports/eddie/scratch/s2215490/proteogenomicsdb/modules/nf-core/freebayes/main.nf'
-include { GUNZIP as GUNZIP_VCF } from '/exports/eddie/scratch/s2215490/proteogenomicsdb/modules/nf-core/gunzip/main.nf'
-include { PYPGATK_VCF         } from '/exports/eddie/scratch/s2215490/proteogenomicsdb/modules/local/pypgatk/vcf_to_proteindb/main.nf'
+//modules involved in the generation of a cannonical database
+include { STRINGTIE_STRINGTIE } from '../../../modules/nf-core/stringtie/stringtie/main.nf'
+include { STRINGTIE_MERGE     } from '../../../modules/nf-core/stringtie/merge/main.nf'
+include { GFFCOMPARE          } from '../../../modules/nf-core/gffcompare/main.nf'
+include { GFFREAD             } from '../../../modules/nf-core/gffread/main.nf'
+include { PYPGATKDNA          } from '../../../modules/local/pypgatk/dnaseq_to_proteindb/main.nf'
+
+//modules involved in the generation of a variant database
+include { FREEBAYES            } from '../../../modules/nf-core/freebayes/main.nf'
+include { GUNZIP as GUNZIP_VCF } from '../../../modules/nf-core/gunzip/main.nf'
+include { BCFTOOLS_INDEX       } from '../../../modules/nf-core/bcftools/index/main.nf'
+include { BCFTOOLS_MERGE       } from '../../../modules/nf-core/bcftools/merge/main.nf'
+include { PYPGATK_VCF          } from '../../../modules/local/pypgatk/vcf_to_proteindb/main.nf'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -27,50 +32,47 @@ workflow RNASEQDB {
 take:
 
     //inputs from the main workflow
-    bam
-    bai
+    bam                    //channel: [val(meta), [samplesheet]]
+    bai                    //channel: [val(meta), [samplesheet]]
     annotation             //channel: /path/to/genome annotation
     reference              //channel: /path/to/reference genome
     config                 //channel: /path/to/custom config file
     dna_config             //channel: /path/to/dna config file
     cdna                   //channel: /path/to/cdna transcripts
     faidx_get_genome_sizes //boolean: whether FAIDX gets genome sizes
-    skip_dnaseq
-    skip_vcf
+    skip_dnaseq            //boolean: decides whether to skip the cannonical database generation
+    skip_vcf               //boolean: decides whether to skip the variant database generation
 
 main:
 
+    //creates empty channels for the final database and versions file
     merged_databases_ch = Channel.empty()
     versions_ch         = Channel.empty()
-    
+
+    //empty channel for the fasta index generated from the genome reference
     fasta_fai_ch        = Channel.empty()
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        START OF THE DNA DATABASE GENERATION PATHWAY
+        START OF THE CANONICAL DATABASE GENERATION PATHWAY
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-    bam.map { bam ->
-    def meta = [id: "bam" ]
-    return [meta, bam ]
-    }
-    .set { bam_sorted_ch }
-    .collect()
-
+    //applies a map to the genome annotation
     annotation.map { genome ->
         def meta = [ id: 'Genome' ]
         return [ meta, genome ] }
-    .set { annotation_ch}
     .collect()
+    .set { annotation_ch}
+    
 
     //applies a map to the genome reference
-
     reference.map { genome ->
         def meta = [ id: 'genome' ]
         return [ meta, genome ] }
-    .set{ reference_ch }
     .collect()
+    .set{ reference_ch }
+    
 
     //SAMTOOLS_FAIDX takes the reference genome (fasta) 
     //and generates a fasta index file (fai)
@@ -86,18 +88,34 @@ main:
 if (!skip_dnaseq) {
 
     //creating empty channels used in the dna database generation pathway
-    stringtie_gtf_ch        = Channel.empty()
-    gffcompare_ch           = Channel.empty()
-    gffout                  = Channel.empty()
+    stringtie_gtf_ch = Channel.empty()
+    merged_gtf_ch    = Channel.empty()
+    gffcompare_ch    = Channel.empty()
+    gffout           = Channel.empty()
 
     //STRINGTIE is taking the genome annotation and the HISAT2 Bam file 
-    //to assemble the RNA-seq alignments into a potential transcript
+    //to assemble the RNA-seq alignments into potential transcripts
     STRINGTIE_STRINGTIE (
-        bam_sorted_ch,
+        bam,
         annotation
     )
     versions_ch = versions_ch.mix(STRINGTIE_STRINGTIE.out.versions_stringtie)
     stringtie_gtf_ch = STRINGTIE_STRINGTIE.out.transcript_gtf
+        .map { meta, gtf ->
+                return [ gtf ] }
+        .collect()
+
+    //stringtie merge is merging the annontation with the potential transcripts generated by STRINGTIE_STRINGTIE
+    STRINGTIE_MERGE (
+        stringtie_gtf_ch,
+        annotation
+    )
+    versions_ch = versions_ch.mix(STRINGTIE_MERGE.out.versions)
+    merged_gtf_ch = STRINGTIE_MERGE.out.gtf
+        .map { gtf ->
+            def meta = [ id: 'gtf' ]
+                return [ meta, gtf ] }
+        .collect()
 
     //cerates an empty channel that will combine the 
     //genome fasta and genome fasta index channels
@@ -106,12 +124,13 @@ if (!skip_dnaseq) {
         .map { map1, fasta, map2, fai ->
             def meta = [ id: 'fasta', description: 'Genome FASTA with index' ]
             return [ meta, fasta, fai ] }
+        .collect()
 
 
     //GFFCOMPARE is taking the genome fasta, genome annotation, and the 
-    //output of StringTie to evaluate the assembly
+    //output of StringTie to asses the accuracy of the assembly 
     GFFCOMPARE (
-        stringtie_gtf_ch,
+        merged_gtf_ch,
         fasta_meta_fai_ch,
         annotation_ch
     )
@@ -149,49 +168,76 @@ else {
     }
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        END OF THE DNA DATABASE GENERATION PATHWAY
+        END OF THE CANONICAL DATABASE GENERATION PATHWAY
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        START OF THE VCF DATABASE GENERATION PATHWAY
+        START OF THE VARIANT DATABASE GENERATION PATHWAY
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
 //conditional execution based on if skip_vcf is true or false
 if (!skip_vcf) {
-        
+
+    //creates empty channels for use in the variant generation pathway
     genome_bam_bai_ch = Channel.empty()
     freebayes_ch      = Channel.empty()
+    freebayes_vcf     = Channel.empty()
+    vcf_index_ch      = Channel.empty()
+    vcf_merge_ch      = Channel.empty()
+    vcf_file_ch       = Channel.empty()
 
     //combines the bam and bam index files into a single channel
-    genome_bam_bai_ch = bam_sorted_ch.combine(bai)
+    genome_bam_bai_ch = bam.join(bai)
         .map { meta, bam, bai ->
             return [ meta, bam, bai, [], [], [] ] }
 
     //FREEBAYES takes the bam, bam index, and fasta index files to generate a vcf file 
     FREEBAYES (
-    genome_bam_bai_ch,
-    reference_ch,
-    fasta_fai_ch,
-    [ [], [] ],
-    [ [], [] ],
-    [ [], [] ]
+        genome_bam_bai_ch,
+        reference_ch,
+        fasta_fai_ch,
+        [ [], [] ],
+        [ [], [] ],
+        [ [], [] ]
     )
     versions_ch = versions_ch.mix(FREEBAYES.out.versions)
-    freebayes_ch = FREEBAYES.out.vcf.collect()
+    freebayes_ch = FREEBAYES.out.vcf
 
-    //GUNZIP_VCF unzips the vcf file generated by FREEBAYES
-    GUNZIP_VCF (
+    //generates a VCF file index
+    BCFTOOLS_INDEX (
         freebayes_ch
     )
-    versions_ch = versions_ch.mix(GUNZIP_VCF.out.versions_gunzip)
+    versions_ch = versions_ch.mix(BCFTOOLS_INDEX.out.versions_bcftools)
+    vcf_index_ch = BCFTOOLS_INDEX.out.tbi
+        .map { meta, index ->
+            return index }
+        .collect()
+        .map { index ->
+            def meta2 = [ id: 'key' ]
+            return [ meta2, index ] }
+  
+    freebayes_vcf = freebayes_ch
+            .map { meta, vcf ->
+                return vcf }
+            .collect()
+            .map { vcf ->
+                def meta2 = [ id: 'key' ]
+                return [ meta2, vcf ] }
 
-    //creates an empty channel that will be populated with the unzipped vcf file generated by FREEBAYES
-    vcf_unzipped = Channel.empty()
-    vcf_unzipped = GUNZIP_VCF.out.gunzip.collect()
+    vcf_merge_ch = freebayes_vcf.join(vcf_index_ch).collect()
+
+    //merges the VCF files into a single file
+    BCFTOOLS_MERGE (
+        vcf_merge_ch,
+        reference_ch,
+        fasta_fai_ch,
+        [ [], [] ]
+    )
+    versions_ch = versions_ch.mix(BCFTOOLS_MERGE.out.versions_bcftools)
+    vcf_file_ch = BCFTOOLS_MERGE.out.vcf
 
     //applies a map to the cdna file
     cdna.map { genome ->
@@ -203,7 +249,7 @@ if (!skip_vcf) {
     //PYPGATKCUSTOM takes the vcf file generated by FREEBAYES and using cdna 
     //transcripts and the genome annotation it generates a variant peptide database
     PYPGATK_VCF (
-        vcf_unzipped,
+        vcf_file_ch,
         annotation_ch,
         cdna_ch,
         config
@@ -222,7 +268,7 @@ else {
 
 /*
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        END OF THE VCF DATABASE GENERATION PATHWAY
+        END OF THE VARIANT DATABASE GENERATION PATHWAY
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 

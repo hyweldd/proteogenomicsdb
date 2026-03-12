@@ -1,7 +1,7 @@
-altorfs_database:
+ensembl_translation:
   translation_table: 1
   proteindb_output_file: 'peptide-database.db'
-  altorfs_database:
+  ensembl_translation:
     mito_translation_table: 2
     var_prefix: "altorf_"
     report_ref_seq: False

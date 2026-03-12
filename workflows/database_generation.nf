@@ -8,7 +8,7 @@
 include { RNASEQDB        } from '../subworkflows/local/rnaseq_workflow/rnaseq_workflow.nf'
 include { ENSEMBLDB       } from '../subworkflows/local/ensembl_workflow/ensembl_workflow.nf'
 include { COSMICDB        } from '../subworkflows/local/cosmic_workflow/cosmic_workflow.nf'
-include { GENECODEDB      } from '../subworkflows/local/genecode_workflow/genecode_workflow.nf'
+include { GENCODEDB      } from '../subworkflows/local/gencode_workflow/gencode_workflow.nf'
 include { CBIOPORTALDB    } from '../subworkflows/local/cbioportal_workflow/cbioportal_workflow.nf'
 include { MERGEDB         } from '../subworkflows/local/merge_workflow/merge_workflow.nf'
 
@@ -40,17 +40,18 @@ take:
     ncrna_config              //channel: /path/to/ncrna config
 
     //inputs for cosmicdb subworkflow
-    cosmic_config                  //channel: /path/to/cosmic config
-    username                       //string: COSMIC username
-    password                       //string: COSMIC password 
-    cosmic_genes_url               //string: cosmic genes url
-    cosmic_mutations_url           //string: cosmic mutations url
+    cosmic_config        //channel: /path/to/cosmic config
+    username             //string: COSMIC username
+    password             //string: COSMIC password 
+    cosmic_genes_url     //string: cosmic genes url
+    cosmic_mutations_url //string: cosmic mutations url
 
-    //inuts for genecodedb subworkflow
-    genecode_transcripts_url //string: genecode transcripts url
-    genecode_annotations_url //string: genecode annotations url
+    //inuts for gencodedb subworkflow
+    gencode_transcripts_url //string: gencode transcripts url
+    gencode_annotations_url //string: gencode annotations url
+    gencode_reference_url   //string: gencode reference url
     gnomad_url               //string: gnomad vcf url
-    genecode_config          //channel: /path/to/genecode config
+    gencode_config          //channel: /path/to/gencode config
 
     //inputs for cbioportaldb subworkflow 
     cbioportal_url       //string: cbioportal study url
@@ -66,20 +67,20 @@ take:
     additional_database //channel: /path/to/an additional database
 
     //input skip options
-    skip_rnaseqdb
-    skip_dnaseq 
-    skip_vcf   
-    skip_ensembldb 
-    skip_proteome   
-    skip_ncrna      
-    skip_pseudogenes
-    skip_altorfs   
-    skip_ensembl_vcf
-    skip_cosmicdb   
-    skip_genecodedb  
-    skip_cbioportaldb
-    skip_decoy 
-    skip_additional_database
+    skip_rnaseqdb            //skips the rnaseqdb sub workflow
+    skip_dnaseq              //boolean: skips the generation of an RNA-seq variant database
+    skip_vcf                 //boolean: skips the generation of an RNA-seq variant database
+    skip_ensembldb           //boolean: skips the ensembl sub workflow
+    skip_proteome            //boolean: skips the inclusion of the ensembl proteome 
+    skip_ncrna               //boolean: skips the generation of an ensembl ncRNA database
+    skip_pseudogenes         //boolean: skips the generation of an ensembl pseudogenes database
+    skip_altorfs             //boolean: skips the generation of an ensembl altORFs database
+    skip_ensembl_vcf         //boolean: skips the generation of an ensembl variant database
+    skip_cosmicdb            //boolean: skips the generation of a cosmic database
+    skip_gencodedb           //boolean: skips the generation of a gencode database
+    skip_cbioportaldb        //boolean: skips the generation of a cBioPortal database
+    skip_decoy               //boolean: skips decoy generation
+    skip_additional_database //boolean: skips the addition of an additional workflow
 
 main:
 
@@ -91,18 +92,16 @@ main:
     if (!skip_rnaseqdb) {
 
         //inputs for the rnaseqdb workflow 
-        bam_file_ch            = Channel.fromPath(bam_file)
-        bam_index_ch           = Channel.fromPath(bam_index)
-        reference_ch           = Channel.fromPath(reference)
-        annotation_ch          = Channel.fromPath(annotation)
-        transcripts_ch         = Channel.fromPath(transcripts)
-        custom_config_ch       = Channel.fromPath(custom_config)
-        dna_config_ch          = Channel.fromPath(dna_config)
+        reference_ch     = Channel.value(file(reference, checkIfExists: true))
+        annotation_ch    = Channel.value(file(annotation, checkIfExists: true))
+        transcripts_ch   = Channel.value(file(transcripts, checkIfExists: true))
+        custom_config_ch = Channel.value(file(custom_config, checkIfExists: true))
+        dna_config_ch    = Channel.value(file(dna_config, checkIfExists: true))
 
         //pass the channels into the RNASEQDB subworkflow - this takes rna sequencing data and produce a protein database
         RNASEQDB (
-            bam_file_ch,
-            bam_index_ch,
+            bam_file,
+            bam_index,
             annotation_ch,
             reference_ch,
             custom_config_ch,
@@ -112,7 +111,7 @@ main:
             skip_dnaseq, 
             skip_vcf
         )
-        //extract tool versions, the peptide database, and the multiqc report from rnaseqdb
+        //extract tool versions and the peptide database
         versions_ch        = versions_ch.mix(RNASEQDB.out.versions_ch).collect()
         mixed_databases_ch = mixed_databases_ch.mix(RNASEQDB.out.merged_databases_ch).collect()
 
@@ -188,31 +187,33 @@ main:
         log.info "cosmicdb subworkflow skipped."
     }
     
-    //conditional execution based on if skip_genecodedb is true or false
-    if (!skip_genecodedb) {
+    //conditional execution based on if skip_gencodedb is true or false
+    if (!skip_gencodedb) {
 
-        //inputs for the genecodedb workflow
-        genecode_transcripts_url_ch = Channel.from(genecode_transcripts_url)
-        genecode_annotations_url_ch = Channel.from(genecode_annotations_url)        
+        //inputs for the gencodedb workflow
+        gencode_transcripts_url_ch = Channel.from(gencode_transcripts_url)
+        gencode_annotations_url_ch = Channel.from(gencode_annotations_url)  
+        gencode_reference_url_ch   = Channel.from(gencode_reference_url)
         gnomad_url_ch               = Channel.from(gnomad_url)
-        genecode_config_ch          = Channel.fromPath(genecode_config)
+        gencode_config_ch          = Channel.fromPath(gencode_config)
         
-        //pass the channels into the GENECODEDB subworkflow - this downloads data FROM GENECODE and GNOMAD to create a protein database
-        GENECODEDB (
-            genecode_transcripts_url_ch,
-            genecode_annotations_url_ch,
+        //pass the channels into the GENCODEDB subworkflow - this downloads data FROM GENCODE and GNOMAD to create a protein database
+        GENCODEDB (
+            gencode_transcripts_url_ch,
+            gencode_annotations_url_ch,
+            gencode_reference_url_ch,
             gnomad_url_ch,
-            genecode_config_ch
+            gencode_config_ch
         )
-        //extract tool versions and the peptide database from genecodedb
-        versions_ch = versions_ch.mix(GENECODEDB.out.versions_ch).collect()
-        mixed_databases_ch = mixed_databases_ch.mix(GENECODEDB.out.genecode_database).collect()
+        //extract tool versions and the peptide database from gencodedb
+        versions_ch = versions_ch.mix(GENCODEDB.out.versions_ch).collect()
+        mixed_databases_ch = mixed_databases_ch.mix(GENCODEDB.out.gencode_database).collect()
 
     }
 
     else {
         //bypass the subworkflow
-        log.info "genecodedb subworkflow skipped."
+        log.info "gencodedb subworkflow skipped."
     }
 
     //conditional execution based on if skip_cbioportaldb is true or false
@@ -261,7 +262,6 @@ main:
         log.info "additional database skipped."
     }
 
-
         //inputs for the mergedb workflow
         clean_config_ch   = Channel.from(clean_config)
         decoy_config_ch   = Channel.fromPath(decoy_config)
@@ -274,7 +274,7 @@ main:
         decoy_config_ch,
         skip_decoy
     )
-        //extract tool versions, the peptide database, and the decoy database from mergedb
+    //extract tool versions, the peptide database, and the decoy database from mergedb
     versions_ch = versions_ch.mix(MERGEDB.out.versions_ch).collect()
     mixed_databases_ch = MERGEDB.out.databases.collect()
     decoy_database_ch = MERGEDB.out.decoy.collect()

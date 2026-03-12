@@ -4,8 +4,8 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { COSMIC_DOWNLOAD           } from '../../../modules/local/cosmic_downloader/main.nf'
-include { PYPGATK_COSMICDB          } from '../../../modules/local/pypgatk/cosmic_to_proteindb/main.nf'
+include { COSMIC_DOWNLOAD  } from '../../../modules/local/cosmic_downloader/main.nf'
+include { PYPGATK_COSMICDB } from '../../../modules/local/pypgatk/cosmic_to_proteindb/main.nf'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -30,7 +30,7 @@ main:
     versions_ch     = Channel.empty()
     cosmic_database = Channel.empty()
 
-    //creating empty channels used in the cosmicdb workflow
+    //creating empty channels for the COSMIC downloads
     cosmic_genes        = Channel.empty()
     cosmic_mutations    = Channel.empty()
 
@@ -47,8 +47,8 @@ main:
 
     //PYPGATK_COSMICDB generates a database using the COSMIC data downloaded
     PYPGATK_COSMICDB ( 
-        cosmic_genes.map { [ [:], it ] },
-        cosmic_mutations.map { [ [:], it ] },
+        cosmic_genes.map { [ [id: 'genes' ], it ] },
+        cosmic_mutations.map { [ [ id: 'mutations' ], it ] },
         cosmic_config
     )   
     versions_ch = versions_ch.mix(PYPGATK_COSMICDB.out.versions).collect()
@@ -56,6 +56,7 @@ main:
 
 emit:
 
+    //emits to the main workflow
     cosmic_database //channel: [ val(meta), [ database ] ]
     versions_ch     //channel: [ path(versions.yml) ]
 

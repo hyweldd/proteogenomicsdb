@@ -5,8 +5,8 @@ process PYPGATK_COSMICDB {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/0f/0f734a98d2a7b9c84d988474c7e71aef2b0abb987b36fb83b17d52bec0d3babe/data' :
-        'community.wave.seqera.io/library/pypgatk_pip:456a1305c1d65d3a' }"
+        'docker://ghcr.io/ggrimes/pypgatk_ar:latest' :
+        'docker://ghcr.io/ggrimes/pypgatk_ar:latest' }"
 
     input:
     tuple val(meta), path(cosmic_genes)
@@ -26,7 +26,7 @@ process PYPGATK_COSMICDB {
     def name = "${prefix}.fa"
 
     """
-    pypgatk_cli.py cosmic-to-proteindb \\
+    pypgatkc.py cosmic-to-proteindb \\
         --config_file ${cosmic_config} \\
         --input_mutation ${cosmic_mutations} \\
         --input_genes ${cosmic_genes} \\

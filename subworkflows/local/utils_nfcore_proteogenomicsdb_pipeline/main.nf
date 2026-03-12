@@ -91,6 +91,57 @@ workflow PIPELINE_INITIALISATION {
         nextflow_cli_args
     )
 
+if (!params.skip_rnaseqdb) {
+
+    //validateInputParameters()
+
+    //
+    // Create channel from input file provided through params.input
+    //
+
+    Channel
+        .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
+        .groupTuple()
+        //.map { samplesheet ->
+          //  validateInputSamplesheet(samplesheet)
+       // }
+        .map {
+            meta, bam ->
+                return [ meta, bam.flatten() ]
+        }
+        .set { bam_samplesheet }
+
+    }
+
+    else {
+
+        bam_samplesheet = Channel.empty()
+    
+    }
+
+    if (!params.skip_rnaseqdb) {
+
+    Channel
+        .fromList(samplesheetToList(params.bam_index, "${projectDir}/assets/schema_input.json"))
+        .groupTuple()
+        .map {
+            meta, bai ->
+                return [ meta, bai.flatten() ]
+        }
+        .set { bai_samplesheet }
+
+    }
+
+    else {
+
+        bai_samplesheet = Channel.empty()
+    
+    }
+
+    emit:
+    bam_samplesheet
+    bai_samplesheet
+    versions = ch_versions
 
 }
 
@@ -156,7 +207,17 @@ def getGenomeAttribute(attribute) {
     }
     return null
 }
+/*
+def validateInputParameters() {
+    genomeExistsError()
+}
 
+def validateInputSamplesheet(input) {
+    def (metas, bam) = input[1..2]
+
+    return [ metas[0], bam ]
+}
+*/
 //
 // Exit pipeline if incorrect --genome key provided
 //

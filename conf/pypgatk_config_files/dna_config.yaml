@@ -1,14 +1,14 @@
-dnaseq-to-proteindb:
+ensembl_translation:
   translation_table: 1
+  proteindb_output_file: 'dna_peptide_database.fa'
   exclude_biotypes: ''
   skip_including_all_cds: False
   include_biotypes: ''
+  biotype_str: ''
   num_orfs: 3
   num_orfs_complement: 0
-  expression_str: ''
+  expression_str: ""
   expression_thresh: 5.0
-  var_prefix: ''
-  proteindb_output_file: 'dna_peptide_database.fa'
   logger:
     formatters:
       DEBUG: "%(asctime)s [%(levelname)7s][%(name)48s][%(module)32s, %(lineno)4s] %(message)s"

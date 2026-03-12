@@ -9,9 +9,14 @@ include { WGET   as WGET_TRANSCRIPTS   } from '../../../modules/nf-core/wget/mai
 include { GUNZIP as GUNZIP_TRANSCRIPTS } from '../../../modules/nf-core/gunzip/main.nf'
 include { WGET as WGET_ANNOTATION      } from '../../../modules/nf-core/wget/main.nf'
 include { GUNZIP as GUNZIP_ANNOTATION  } from '../../../modules/nf-core/gunzip/main.nf'
-include { GSUTIL                       } from '../../../modules/local/gsutil/main.nf'
-include { TABIX_BGZIP                  } from '../../../modules/nf-core/tabix/bgzip/main.nf'
-include { PYPGATK_VCF                  } from '../../../modules/local/pypgatk/vcf_to_proteindb/main.nf'
+
+include { WGET as WGET_REFERENCE      } from '../../../modules/nf-core/wget/main.nf'
+include { GUNZIP as GUNZIP_REFERENCE  } from '../../../modules/nf-core/gunzip/main.nf'
+include { SAMTOOLS_FAIDX              } from '../../../modules/nf-core/samtools/faidx/main.nf'
+
+include { GSUTIL      } from '../../../modules/local/gsutil/main.nf'
+include { CAT_CAT     } from '../../../modules/nf-core/cat/cat/main.nf'
+include { PYPGATK_VCF } from '../../../modules/local/pypgatk/vcf_to_proteindb/main.nf'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -26,6 +31,7 @@ take:
     //inputs from the main workflow
     genecode_transcripts_url //string: genecode transcripts url
     genecode_annotation_url  //string: genecode annotations url
+    genecode_reference_url
     gnomad_url               //string: gnomad vcf url
     genecode_config          //channel: /path/to/genecode config
 
@@ -36,12 +42,21 @@ main:
     genecode_database = Channel.empty()
 
     //creates empty channels used in the GENECODEDB workflow
-    genecode_transcripts_ch        = Channel.empty()
-    genecode_annotation_ch         = Channel.empty()
-    vcf_compressed                 = Channel.empty()
-    gnomad_vcf_extracted           = Channel.empty()
+    genecode_transcripts_ch = Channel.empty()
+    genecode_annotation_ch  = Channel.empty()
+    genecode_reference_ch   = Channel.empty()
+
     genecode_annotation_gunzipped  = Channel.empty()
     genecode_transcripts_gunzipped = Channel.empty()
+    genecode_reference_gunzipped   = Channel.empty()
+
+    fasta_fai_ch = Channel.empty()
+
+    vcf_compressed_ch = Channel.empty()
+    vcf_file_ch       = Channel.empty()
+
+    merged_vcf        = Channel.empty()
+
 
 
     //WGET_TRANSCRIPTS downloads the transcript files from genecode 
@@ -71,6 +86,19 @@ main:
     )
     versions_ch = versions_ch.mix(GUNZIP_ANNOTATION.out.versions_gunzip).collect()
     genecode_annotation_gunzipped = GUNZIP_ANNOTATION.out.gunzip.collect()
+
+    WGET_REFERENCE (
+        genecode_reference_url.map { [ [id: 'reference.fa' ], it ] }
+    )
+    versions_ch = versions_ch.mix(WGET_REFERENCE.out.versions).collect()
+    genecode_reference_ch = WGET_REFERENCE.out.outfile.collect()
+
+    //GUNZIP_ANNOTATION unzipps the annotation files downloaded from genecode
+    GUNZIP_REFERENCE (
+        genecode_reference_ch
+    )
+    versions_ch = versions_ch.mix(GUNZIP_REFERENCE.out.versions_gunzip).collect()
+    genecode_reference_gunzipped = GUNZIP_REFERENCE.out.gunzip.collect()
     
     //GSUTIL downloads the vcf file from gnomad 
     GSUTIL (
@@ -79,17 +107,16 @@ main:
     versions_ch = versions_ch.mix(GSUTIL.out.versions).collect()
     vcf_compressed = GSUTIL.out.vcf.collect()
 
-    //TABIX_BGZIP unzips the vcf file downloaded from gnomad
-    TABIX_BGZIP (
+    CAT_CAT (
         vcf_compressed
-    )
-    versions_ch = versions_ch.mix(TABIX_BGZIP.out.versions_tabix).collect()  
-    gnomad_vcf_extracted = TABIX_BGZIP.out.output.collect()
+        )
+    versions_ch = versions_ch.mix(CAT_CAT.out.versions_cat)
+    vcf_file_ch = CAT_CAT.out.file_out.collect()
 
     //PYPGATK takes the unzipped vcf, annotation, and transcript along with the 
     //genecode config to generate a peptide database
     PYPGATK_VCF (
-        gnomad_vcf_extracted,
+        vcf_file_ch,
         genecode_annotation_gunzipped,
         genecode_transcripts_gunzipped,
         genecode_config  

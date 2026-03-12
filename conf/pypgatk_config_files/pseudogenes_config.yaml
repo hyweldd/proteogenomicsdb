@@ -1,7 +1,7 @@
-pseudogenes_database:
+ensembl_translation:
   translation_table: 1
   proteindb_output_file: 'peptide-database.db'
-  pseudogenes_database:
+  ensembl_translation:
     mito_translation_table: 2
     var_prefix: "pseudo_"
     report_ref_seq: False

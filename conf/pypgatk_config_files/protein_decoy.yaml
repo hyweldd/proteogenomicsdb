@@ -3,7 +3,6 @@ proteindb_decoy:
   method: protein-reverse
   enzyme: Trypsin
   cleavage_position: c
-  cleavage_sites: KR
   anti_cleavage_sites: ''
   min_peptide_length: 6
   max_peptide_length: 100
@@ -21,6 +20,4 @@ proteindb_decoy:
       DEBUG: "%(asctime)s [%(levelname)7s][%(name)48s][%(module)32s, %(lineno)4s] %(message)s"
       INFO: "%(asctime)s [%(levelname)7s][%(name)48s] %(message)s"
     loglevel: DEBUG
-
-    
 

@@ -3,11 +3,15 @@
         IMPORT MODULES
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-
+//download a copy of the human reference genome GRCh38
 include { WGET as WGET_GRCH38 } from '../../../modules/nf-core/wget/main.nf'
 include { GUNZIP              } from '../../../modules/nf-core/gunzip/main.nf'
+
+//download sample data from cBioPortal
 include { CBIOPORTAL_DOWNLOAD } from '../../../modules/local/cbioportal_downloader/main.nf'
-include { PYPGATK_CBIOPORTAL  } from '../../../modules/local/pypgatk/cbioportal_to_proteindb/main.nf'
+
+//generate a peptide sequence database from cBioPortal data
+include { PYPGATK_CBIOPORTAL } from '../../../modules/local/pypgatk/cbioportal_to_proteindb/main.nf'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -31,20 +35,22 @@ main:
     versions_ch         = Channel.empty()
     cbioportal_database = Channel.empty()
 
-    //creating empty channels used in the cbioportaldb workflow
+    //creating empty channels for GRCh38 downloads
     grch38_ch       = Channel.empty()
     grch38_unzipped = Channel.empty()
+
+    //creating empty channels for cBioPortal downloads
     cbio_samples    = Channel.empty()
     cbio_mutations  = Channel.empty()
 
-    //WGET_GRCH38 takes the link and downloads it off the internet
+    //WGET_GRCH38 downloads a copy of GRCh38
      WGET_GRCH38 (
         grch38_url.map { [ [id: 'grch38' ], it ] }
     )
     versions_ch = versions_ch.mix(WGET_GRCH38.out.versions).collect()
     grch38_ch = WGET_GRCH38.out.outfile.collect()
 
-    //GUNZIP unzips the file downloaded using WGET_GRCH38 
+    //GUNZIP unzips the copy of GRCh38
     GUNZIP(
         grch38_ch
     )
@@ -59,7 +65,7 @@ main:
     cbio_mutations = CBIOPORTAL_DOWNLOAD.out.cbio_mutations
     cbio_samples = CBIOPORTAL_DOWNLOAD.out.cbio_samples
 
-    //PYPGATK_CBIOPORTAL generates a peptide database using the grch38, mutations, and samples files
+    //PYPGATK_CBIOPORTAL generates a peptide database using the grch38 and cBioPortal downloads
     PYPGATK_CBIOPORTAL (
         grch38_unzipped,
         cbio_mutations.map { [ [id: 'cbio_mutations' ], it ] },

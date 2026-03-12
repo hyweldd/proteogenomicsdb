@@ -9,7 +9,7 @@ process GSUTIL {
         'community.wave.seqera.io/library/gsutil:5.35--34de676970af02ec' }"
 
     input:
-    tuple val(meta), path(url)
+    tuple val(meta), val(url)
 
     output:
     tuple val(meta), path("*.vcf.bgz"), emit: vcf
@@ -23,9 +23,7 @@ process GSUTIL {
     def prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    gsutil cp \\
-     ${url} \\
-     ./${prefix}.vcf.bgz \\
+    gsutil cp ${url} . \\
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

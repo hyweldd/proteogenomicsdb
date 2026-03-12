@@ -29,6 +29,7 @@ process PYPGATKDNA {
         --config_file ${pypgatk_config} \\
         --input_fasta ${file} \\
         --output_proteindb ${name} \\
+        --biotype_str '' \\
  
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

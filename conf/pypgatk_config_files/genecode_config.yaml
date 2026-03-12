@@ -1,9 +1,9 @@
-genecode_database:
+ensembl_translation:
   translation_table: 1
   proteindb_output_file: 'peptide-database.db'
-  genecode_database:
+  ensembl_translation:
     mito_translation_table: 2
-    protein_prefix: "gnomaddb_var_"
+    protein_prefix: "gnomadvar_"
     report_ref_seq: False
     annotation_field_name: 'vep'
     af_field: 'controls_AF'

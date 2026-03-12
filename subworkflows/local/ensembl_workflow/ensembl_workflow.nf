@@ -14,7 +14,7 @@ include { PYPGATKDNA as PYPGATK_NCRNA       } from '../../../modules/local/pypga
 include { PYPGATKDNA as PYPGATK_PSEUDOGENES } from '../../../modules/local/pypgatk/dnaseq_to_proteindb/main.nf'
 include { PYPGATKDNA as PYPGATK_ALRORFS     } from '../../../modules/local/pypgatk/dnaseq_to_proteindb/main.nf'
 
-//modules for the generation of the main ENSEMBL database
+//modules for the generation of the ENSEMBL variant database
 include { CAT_CAT as CAT_VCF  } from '../../../modules/nf-core/cat/cat/main.nf'
 include { PYPGATK_VCF         } from '../../../modules/local/pypgatk/vcf_to_proteindb/main.nf'
 
@@ -35,10 +35,10 @@ take:
     altorfs_config            //channel: /path/to/altorfs config
     pseudogenes_config        //channel: /path/to/pseudogenes config
     ncrna_config              //channel: /path/to/ncrna config
-    skip_proteome   
-    skip_ncrna      
-    skip_pseudogenes
-    skip_altorfs   
+    skip_proteome             //boolean: skips adding the ENSEMBL proteome to the final peptide database
+    skip_ncrna                //boolean: skips adding the ENSEMBL ncRNA to the final peptide database
+    skip_pseudogenes          //boolean: skips adding the ENSEMBL pseudogenes to the final peptide database
+    skip_altorfs              //boolean: skips adding the ENSEMBL proteome to the final peptide database
     skip_ensembl_vcf
 
 main:
@@ -53,11 +53,12 @@ main:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-    //creating empty channels used in the ENSEMBL download pathway
+    //creating empty channels used for downloading and merging the ENSEMBL cDNA 
     cdna_mixed = Channel.empty()
     total_cdna = Channel.empty()
 
-    //PYPGATK_ENSEMBL uses the ensembl species ID to downloads files from ENSEMBL
+    //PYPGATK_ENSEMBL uses the ensembl species ID and config to downloads files from ENSEMBL
+    //skip_ensembl_vcf optionally skips downloading the VCF files 
     PYPGATK_ENSEMBL_DOWNLOAD (
         ensembl_downloader_config,
         species_name,
@@ -67,7 +68,7 @@ main:
     cdna_mixed = PYPGATK_ENSEMBL_DOWNLOAD.out.cdna.mix(PYPGATK_ENSEMBL_DOWNLOAD.out.ncrna).collect()
         .map { [ [id: 'Total_cDNA' ], it ] }
 
-    //CAT_DNA concatinates the cdna filed downloaded from ENSEMBL into a single file
+    //CAT_DNA concatinates the cdna files downloaded from ENSEMBL into a single file
     CAT_DNA (
         cdna_mixed
     )
@@ -97,20 +98,20 @@ if (!skip_proteome) {
     reference_proteome = Channel.empty()
     reference_proteome = PYPGATK_ENSEMBL_DOWNLOAD.out.protein.collect()
 
-    //adds the protein files downloaded from ENSEMBL to the mixed database channel
+    //adds the protein files to the mixed database channel
     mixed_databases = mixed_databases.mix(reference_proteome).collect()
 
 }
 
 else {
-        //bypass the subworkflow
+        //bypass this section
         log.info "proteome skipped."
     }
 
 //conditional execution based on if skip_ncrna is true or false
 if (!skip_ncrna) {
 
-    //PYPGATK_NCRNA takes the total_cdna and the ncrna_config to generate a peptide database
+    //PYPGATK_NCRNA takes the total_cdna and the ncrna_config to generate a peptide database containing the ncRNA sequences
     PYPGATK_NCRNA (
         total_cdna.map { [ [id: 'ncRNA'], it ] },
         ncrna_config
@@ -123,14 +124,14 @@ if (!skip_ncrna) {
 }
 
 else {
-        //bypass the subworkflow
+        //bypass this section
         log.info "ncrna database skipped."
     }
 
 //conditional execution based on if skip_pseudogenes is true or false
 if (!skip_pseudogenes) {
 
-    //PYPGATK_PSEUDOGENES takes the total_cdna and the pseudogenes_config to generate a peptide database
+    //PYPGATK_PSEUDOGENES takes the total_cdna and the pseudogenes_config to generate a peptide database containing the pseudogene sequences
     PYPGATK_PSEUDOGENES (
         total_cdna.map { [ [id: 'pseudogenes'], it ] },
         pseudogenes_config
@@ -143,7 +144,7 @@ if (!skip_pseudogenes) {
 }
 
 else {
-        //bypass the subworkflow
+        //bypass this section
         log.info "pseudogenes database skipped."
     }
 
@@ -155,7 +156,7 @@ if (!skip_altorfs) {
     cdna_database = PYPGATK_ENSEMBL_DOWNLOAD.out.cdna.collect()
         .map { [ [id: 'Altorfs_database'], it ] }
 
-    //PYPGATK_ALTORFS takes the cdna files and the altorfs_config to generate a peptide database
+    //PYPGATK_ALTORFS takes the cdna files and the altorfs_config to generate a peptide database containing the alternative reading frame sequences
     PYPGATK_ALRORFS (
         cdna_database,
         altorfs_config
@@ -167,7 +168,7 @@ if (!skip_altorfs) {
 }
 
 else {
-        //bypass the subworkflow
+        //bypass this section
         log.info "altorfs database skipped."
     }
 
@@ -222,7 +223,7 @@ if (!skip_ensembl_vcf) {
 }
 
 else {
-        //bypass the subworkflow
+        //bypass this section
         log.info "ensembl vcf database skipped."
 }
 

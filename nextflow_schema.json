@@ -177,10 +177,10 @@
                     "description": "option to skip the cosmicdb workflow",
                     "default": true
                 },
-                "skip_genecodedb": {
+                "skip_gencodedb": {
                     "type": "boolean",
                     "default": true,
-                    "description": "option to skip the genecodedb workflow"
+                    "description": "option to skip the gencodedb workflow"
                 },
                 "skip_cbioportaldb": {
                     "type": "boolean",
@@ -206,7 +206,7 @@
             "properties": {
                 "cbioportal_url": {
                     "type": "string",
-                    "description": "placeholder text"
+                    "description": "url for the cBioPortal study the user wants to download"
                 },
                 "grch38_url": {
                     "type": "string",
@@ -215,22 +215,32 @@
                 },
                 "cosmic_genes_url": {
                     "type": "string",
+                    "default": "https://cancer.sanger.ac.uk/api/mono/products/v1/downloads/scripted?path=grch38/cosmic/v103/Cosmic_Genes_Fasta_v103_GRCh38.tar&bucket=downloads",
                     "description": "download url for the COSMIC gene data"
                 },
                 "cosmic_mutations_url": {
                     "type": "string",
+                    "default": "https://cancer.sanger.ac.uk/api/mono/products/v1/downloads/scripted?path=grch38/cosmic/v103/Cosmic_GenomeScreensMutant_Tsv_v103_GRCh38.tar&bucket=downloads",
                     "description": "download url for the COSMIC mutations data"
                 },
-                "genecode_transcripts_url": {
+                "gencode_transcripts_url": {
                     "type": "string",
-                    "description": "download url for genecode transcripts data"
+                    "default": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/gencode.v49.transcripts.fa.gz",
+                    "description": "download url for gencode transcripts data"
                 },
-                "genecode_annotations_url": {
+                "gencode_annotations_url": {
                     "type": "string",
-                    "description": "download url for genecode annotation data"
+                    "default": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/gencode.v49.primary_assembly.annotation.gtf.gz",
+                    "description": "download url for gencode annotation data"
+                },
+                "gencode_reference_url": {
+                    "type": "string",
+                    "default": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/GRCh38.primary_assembly.genome.fa.gz",
+                    "description": "download url for gencode genome reference"
                 },
                 "gnomad_url": {
                     "type": "string",
+                    "default": "gs://gcp-public-data--gnomad/release/4.1/vcf/genomes/gnomad.genomes.v4.1.sites.*.vcf.bgz",
                     "description": "download url for gnomad vcf data"
                 }
             }
@@ -242,62 +252,62 @@
             "properties": {
                 "dna_config": {
                     "type": "string",
-                    "default": "/exports/eddie/scratch/s2215490/proteogenomicsdb/conf/pypgatk_config_files/dna_config.yaml",
+                    "default": "$projectDir/conf/pypgatk_config_files/dna_config.yaml",
                     "description": "config file used in the RNASEQDB workflow in the PYPGATK_DNA process"
                 },
                 "custom_config": {
                     "type": "string",
-                    "default": "/exports/eddie/scratch/s2215490/proteogenomicsdb/conf/pypgatk_config_files/custom_config.yaml",
+                    "default": "$projectDir/conf/pypgatk_config_files/custom_config.yaml",
                     "description": "config file used in the RNASEQDB workflow in the PYPGATK_VCF process"
                 },
-                "genecode_config": {
+                "gencode_config": {
                     "type": "string",
-                    "default": "/exports/eddie/scratch/s2215490/proteogenomicsdb/conf/pypgatk_config_files/genecode_config.yaml",
-                    "description": "config file used in the GENECODEDB workflow in the PYPGATK_VCF process"
+                    "default": "$projectDir/conf/pypgatk_config_files/gencode_config.yaml",
+                    "description": "config file used in the gencodeDB workflow in the PYPGATK_VCF process"
                 },
                 "cbio_config": {
                     "type": "string",
-                    "default": "/exports/eddie/scratch/s2215490/proteogenomicsdb/conf/pypgatk_config_files/cbioportal_config.yaml",
+                    "default": "$projectDir/conf/pypgatk_config_files/cbioportal_config.yaml",
                     "description": "config file used in the CBIOPORTALDB workflow in the PYPGATK_CBIOPORTAL process"
                 },
                 "ensembl_downloader_config": {
                     "type": "string",
-                    "default": "/exports/eddie/scratch/s2215490/proteogenomicsdb/conf/pypgatk_config_files/ensembl_downloader_config.yaml",
+                    "default": "$projectDir/conf/pypgatk_config_files/ensembl_downloader_config.yaml",
                     "description": "config file used in the ENSEMBLDB workflow in the PYPGATK_ENSEMBL_DOWNLOADER process"
                 },
                 "ensembl_config": {
                     "type": "string",
-                    "default": "/exports/eddie/scratch/s2215490/proteogenomicsdb/conf/pypgatk_config_files/ensembl_config.yaml",
+                    "default": "$projectDir/conf/pypgatk_config_files/ensembl_config.yaml",
                     "description": "config file used in the ENSEMBLDB workflow in the PYPGATK_VCF process"
                 },
                 "ncrna_config": {
                     "type": "string",
-                    "default": "/exports/eddie/scratch/s2215490/proteogenomicsdb/conf/pypgatk_config_files/ncrna_config.yaml",
+                    "default": "$projectDir/conf/pypgatk_config_files/ncrna_config.yaml",
                     "description": "config file used in the ENSEMBLDB workflow in the PYPGATK_NCRNA process"
                 },
                 "pseudogenes_config": {
                     "type": "string",
-                    "default": "/exports/eddie/scratch/s2215490/proteogenomicsdb/conf/pypgatk_config_files/pseudogenes_config.yaml",
+                    "default": "$projectDir/conf/pypgatk_config_files/pseudogenes_config.yaml",
                     "description": "config file used in the ENSEMBLDB workflow in the PYPGATK_PSEUDOGENES process"
                 },
                 "altorfs_config": {
                     "type": "string",
-                    "default": "/exports/eddie/scratch/s2215490/proteogenomicsdb/conf/pypgatk_config_files/altorfs_config.yaml",
+                    "default": "$projectDir/conf/pypgatk_config_files/altorfs_config.yaml",
                     "description": "config file used in the ENSEMBLDB workflow in the PYPGATK_ALTORFS process"
                 },
                 "cosmic_config": {
                     "type": "string",
-                    "default": "/exports/eddie/scratch/s2215490/proteogenomicsdb/conf/pypgatk_config_files/cosmic_config.yaml",
+                    "default": "$projectDir/conf/pypgatk_config_files/cosmic_config.yaml",
                     "description": "config file used in the COSMICDB workflow in the PYPGATK_COSMIC process"
                 },
                 "clean_config": {
                     "type": "string",
-                    "default": "/exports/eddie/scratch/s2215490/proteogenomicsdb/conf/pypgatk_config_files/clean_config.yaml",
+                    "default": "$projectDir/conf/pypgatk_config_files/clean_config.yaml",
                     "description": "config file used in the MERGEDB workflow in the ENSEMBL_CHECK process"
                 },
                 "decoy_config": {
                     "type": "string",
-                    "default": "/exports/eddie/scratch/s2215490/proteogenomicsdb/conf/pypgatk_config_files/protein_decoy.yaml",
+                    "default": "$projectDir/conf/pypgatk_config_files/protein_decoy.yaml",
                     "description": "config file used in the MERGEDB workflow in the PYPGATK_DECOY process"
                 }
             }
@@ -328,7 +338,7 @@
                     "description": "gene transcripts (.fa) file for RNASEQDB"
                 },
                 "species_id": {
-                    "type": "string",
+                    "type": "integer",
                     "description": "ENSEMBL species id"
                 },
                 "cbio_study": {
@@ -345,11 +355,11 @@
                 },
                 "input": {
                     "type": "string",
-                    "description": "sorted bam file"
+                    "description": "sorted bam file inputted as a samplesheet"
                 },
                 "bam_index": {
                     "type": "string",
-                    "description": "bam index file"
+                    "description": "bam index file inputted as a samplesheet"
                 }
             }
         }
